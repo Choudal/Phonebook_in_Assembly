@@ -1,0 +1,251 @@
+
+.data
+ 
+#-----Print Strings-----
+
+print_choice: .asciiz "\n\nPlease determine operation, entry (E), inquiry (I) or quit (Q):\n"
+print_name: .asciiz "\nPlease enter the first name:\n"
+print_surname: .asciiz "\nPlease enter the last name:\n"
+print_phone: .asciiz "\nPlease enter the phone number:\n"
+print_en: .asciiz "\nYour entry is:\n"
+print_number: .asciiz "\nPlease enter the entry number that you wish to retrieve:\n"
+print_entry2: .asciiz "\nThe number is:\n"
+print_error_char: .asciiz "\nThe character can not be recognised.\nPlease try again.\n"
+print_full: .asciiz "\nList is full\n"
+print_no_entry: .asciiz "\nThere is no such entry in the phonebook\n"
+.align 2 
+
+#-----Input String-----
+catalogue: .space 600                        
+buffer: .space 20
+
+
+.text
+
+main:
+        bne $s3,1,build_catalogue               # If s3==1 branches to label 'catalogue'                  
+	jal Prompt_User                         # Jumps at label 'Prompt_User' and stores the address of 'pc+4' at $ra
+	move $s7, $v0                           # Moves the character of $v0 to $s7
+	beq $s7, 0x000000045, Get_entry         # Checks if $s7=='E' | If true jumps to Get_entry
+	beq $s7, 0x000000049, Print_Entry       # Checks if $s7=='I' | If true jumps to Print_Entry
+	beq $s7, 0x000000051, quit              # Checks if $s7=='Q' | If true jumps to quit
+	beq $s7, 0x000000065, Get_entry         # Checks if $s7=='e' | If true jumps to Get_entry
+	beq $s7, 0x000000069, Print_Entry       # Checks if $s7=='i' | If true jumps to Print_Entry
+	beq $s7, 0x000000071, quit              # Checks if $s7=='q' | If true jumps to quit
+	
+	li $v0,4                                # Loads 4 at $v0 (For printing strings)                        
+	la $a0,print_error_char                 # Loads string 'print_error_char' at $a0
+	syscall
+	j main                                  # Jumps to main
+
+build_catalogue:                                # WILL BE EXECUTED ONLY ONCE
+	la $s0, catalogue                       # $s0 points at the beggining of string 'catalogue'
+	move $s1, $s0                           # $s1 points at the beginning of string 'catalogue'
+	li $s2,1                      		 # Loads '1' at $s2
+	li $s3,1                                # Loads '1' at $s3
+	
+	j main                                  # Jumps to main
+
+#-----------------------------------------------
+get_first:
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)        
+	la $a0,print_name                      # Loads string 'print_name' at $a0
+	syscall
+	
+	j continue                             # Jumps to label 'continue'
+	
+get_last:
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)               
+	la $a0,print_surname                   # Loads string 'print_surname' at $a0
+	syscall
+	
+	j continue                             # Jumps to label 'continue'
+	
+get_phone:
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)
+	la $a0,print_phone                     # Loads string 'print_surname' at $a0
+	syscall
+
+continue:
+	li $v0,8                               # Loads 8 at $v0 (For reading strings)                             
+	la $a0,buffer                          # Loads string 'buffer' at $a0
+	li $a1,20                              # Loads the length of string 'buffer' at $a1 
+	syscall
+	
+	move $a1, $s1                          # Loads the address of the movable pointer of catalogue at $a1
+	
+	addi $sp,$sp,-4                        # Allocate 4 bytes from stack by moving the $sp 
+	sw $ra,($sp)                           # Stores the address of $ra at the 4 bytes of $sp
+	jal write_buffer                       # Jumps at label 'write_buffer' and stores the address of 'pc+4' at $ra
+	addi $s1 ,$s1, 20                      # Moves the movable pointer of catalogue for the next entry
+	
+	lw $ra,($sp)                           # Loads the address that has been previously stored in $sp at $ra   
+	addi $sp,$sp,4                         # Free the memory that has been alocated by moving the $sp 
+	jr $ra                                 # Jumps to the address of $ra
+		
+write_buffer:
+	move $t0,$a0                           # Loads the address of the string 'buffer' at $a0
+	move $t1,$a1                           # Loads the address of the movable pointer of catalogue at $a1 
+	li $t9, 600                            # Loads 600 at $t9
+	add $t9, $t9, $s0                      # $t9 points at the end of string catalogue
+	beq $t9, $s1, full                     # If the movable pointer of catalogue points at the end of the string the branch -> label 'full'
+loop:
+	lb $t3, ($t0)                          # Loads a byte from buffer at $t3
+	beq $t3, 0x0000000a, cont              # Checks if $t3 is equal to '/n'
+	beq $t3, $zero, skip                   # Checks if $t3 is equal to null
+	sb $t3, ($t1)                          # Stores the byte of $t3 at catalogue
+	addi $t0, $t0, 1                       # Moves the pointer of buffer by 1 byte
+	addi $t1, $t1, 1                       # Moves the pointer of catalogue by 1 byte
+
+	j loop                                 # Jumps to label loop
+
+cont:
+	li $t3, 0x00000020                     # Loads (space) at $t3 
+	sb $t3, ($t1)                          # Stores (space) at catalogue
+	addi $t1, $t1, 1			# Move pointer 1 more
+	sb $zero, ($t1)			# Store the null byte
+skip:
+	jr $ra                                 # Jumps to $ra
+		
+full:
+	li $v0, 4                              # Loads 4 at $v0 (For printing strings)
+	la $a0, print_full                     # Loads string 'print_full' at $a0
+	syscall
+	j main	                               # Jumps to main
+	
+					
+Get_entry:
+	jal get_first                          # Jumps to label 'get_first' and stores the address of 'pc+4' at $ra
+	jal get_last                           # Jumps to label 'get_last'  and stores the address of 'pc+4' at $ra
+	jal get_phone                          # Jumps to label 'get_phone' and stores the address of 'pc+4' at $ra
+	
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)
+        la $a0,print_en                        # Loads string 'print_en' at $a0
+	syscall
+	
+	li $t0,0x00000020                      # Loads (space) at $t0 
+	li $v0,11                              # Loads 11 at $v0 (For printing characters)
+	la $a0,($t0)                           # Loads the content of $t0 at $a0
+	syscall
+	 
+	li $v0,1                             # Loads 1 at $v0 (For printing integers)
+	move $a0,$s2                           # Copy the content of $s2 at $a0
+	syscall
+	
+	addi $s2,$s2,1                         # Adds '1' to the content $s2
+	
+	li $t0,0x0000002e                      # Loads '.' at $t0
+	li $v0,11                              # Loads 11 at $v0 (For printing characters)
+	la $a0,($t0)                           # Loads the content of $t0 at $a0
+	syscall
+	
+        li $t0,0x00000020                      # Loads (space) at $t0
+	li $v0,11                              # Loads 11 at $v0 (For printing characters)
+	la $a0,($t0)                           # Loads the content of $t0 at $a0
+	syscall
+        
+        addi $t1,$s1,-60                       # $t1 contains the address of the new entry
+        
+        li $v0,4                               # Loads 4 at $v0 (For printing strings) 
+        la $a0,($t1)                           # Prints the name of the entry
+	syscall
+	
+	
+	addi $t1,$t1,20                        # Moves the pointer at the beginning of surname
+	
+        li $v0,4                               # Loads 4 at $v0 (For printing strings)
+        la $a0,($t1)                           # Prints the surname of the entry
+	syscall
+	
+	addi $t1,$t1,20                        # Moves the pointer at the beginning of phone
+	
+        li $v0,4                               # Loads 4 at $v0 (For printing strings)
+        la $a0,($t1)                           # Prints the phone of the entry
+	syscall
+	
+	j main                                 # Jumps to main
+
+#-----------------------------------------------
+Print_Entry:
+	li $t0,60                              # $t0=60
+
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)
+	la $a0,print_number                    # Loads string 'print_number' at $a0
+	syscall
+
+	li $v0,5                               # Loads 5 at $v0 (For reading integers)
+	syscall
+	move $t3,$v0                           # Moves the integer (inside $v0) to $t3
+
+     addi $t1,$s2,-1
+	bgt $t3,$t1,term
+
+	addi $t5,$t3,0                         # Moves the integer to $t5
+	addi $t3,$t3,-1                        # Subtracts 1 from the int inside $t3
+	mult $t3,$t0                           # Multiplies the content of $t3 with 60 (content of $t0) and moves the answer at Lo
+	mflo $t3                               # Moves the content of Lo to $t3
+	add $t4,$s0,$t3                        # $t4 points to the name of the entry that we want to print
+	
+        li $v0,4
+        la $a0,print_en
+        syscall
+        
+        li $t0,0x00000020 
+	li $v0,11
+	la $a0,($t0)
+	syscall
+	 
+	li $v0,1
+	la $a0,($t5)
+	syscall
+	
+	li $t0,0x0000002e 
+	li $v0,11
+	la $a0,($t0)
+	syscall
+	
+        li $t0,0x00000020 
+	li $v0,11
+	la $a0,($t0)
+	syscall
+               
+        li $v0,4
+        la $a0,($t4)
+	syscall
+	
+	addi $t4,$t4,20
+	
+        li $v0,4
+        la $a0,($t4)
+	syscall
+	
+	addi $t4,$t4,20
+	
+        li $v0,4
+        la $a0,($t4)
+	syscall
+	
+	j main
+	
+term:
+	li $v0,4
+	la $a0,print_no_entry
+	syscall
+	
+	j main		
+
+#-----------------------------------------------
+		
+quit:
+	li $v0, 10                             # Loads 10 at $v0 (For terminating the program) 
+	syscall
+
+#-----------------------------------------------	
+Prompt_User:
+	li $v0,4                               # Loads 4 at $v0 (For printing strings)
+	la $a0,print_choice                    # Loads string 'print_choice' at $a0
+	syscall
+
+	li $v0,12                              # Loads 12 at $v0 (For reading charcters)
+	syscall                                # Stores the character at $v0
+	jr $ra                                 # Jumps to main
